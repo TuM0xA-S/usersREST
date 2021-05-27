@@ -5,7 +5,7 @@ simple rest api using echo framework and json file based database
 * modular organisation (db fully separated)
 * db optimized for perfomance 
 * good test coverage
-* handles signals
+* handles signals (gracefully shutdowns saving of data on ctrl+c)
 
 ### api reference
 action              | request
