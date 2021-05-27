@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"users/usersdb"
 
@@ -98,7 +97,6 @@ func (api *UsersAPI) deleteUser(c echo.Context) error {
 }
 
 func (api *UsersAPI) getUserList(c echo.Context) error {
-	fmt.Println("hello world")
 	users := []usersdb.User{}
 	if err := api.db.GetList(&users); err != nil {
 		return err
