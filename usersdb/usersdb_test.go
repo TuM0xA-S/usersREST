@@ -56,7 +56,7 @@ func TestFlush(t *testing.T) {
 	createTestData()
 	db, err := NewDBJSON(dataFile)
 	req.Nil(err, "file should open")
-	db.DeleteUser(1)
+	db.Delete(&User{ID: 1})
 
 	req.Nil(db.Flush())
 	anotherdb, err := NewDBJSON(dataFile)
@@ -82,26 +82,29 @@ func (t *DBJSONTestSuite) SetupTest() {
 }
 
 func (t *DBJSONTestSuite) TestCreate() {
-	user := &User{
+	expected := &User{
 		Name: "John",
 		Age:  23,
 	}
-	id, err := t.db.CreateUser(user)
-	t.Require().Nil(err, "operation should succed")
-	user.ID = id
-	actual, err := t.db.GetUser(id)
-	t.Require().Nil(err, "operation should succed")
-	t.Require().Equal(user, actual)
+	actual := &User{
+		Name: expected.Name,
+		Age:  expected.Age,
+	}
+
+	t.Require().Nil(t.db.Create(actual), "operation should succed")
+	expected.ID = actual.ID
+	t.Require().Equal(expected, actual)
 }
 
 func (t *DBJSONTestSuite) TestGet() {
-	user, err := t.db.GetUser(2)
-	t.Require().Nil(err, "operation should succed")
+	user := &User{ID: 2}
+	t.Require().Nil(t.db.Get(user), "operation should succed")
 	t.Require().Equal(data.Users[2], *user)
 }
 
 func (t *DBJSONTestSuite) TestGetList() {
-	actual, err := t.db.GetUserList()
+	actual := []User{}
+	err := t.db.GetList(&actual)
 	t.Require().Nil(err, "operation should succed")
 
 	expected := []User{}
@@ -117,21 +120,19 @@ func (t *DBJSONTestSuite) TestCount() {
 }
 
 func (t *DBJSONTestSuite) TestDelete() {
-	err := t.db.DeleteUser(2)
-	t.Require().Nil(err, "operation should succed")
-
-	_, err = t.db.GetUser(2)
-	t.Require().NotNil(err, "operation should fail")
+	//delete
+	t.Require().Nil(t.db.Delete(&User{ID: 2}), "operation should succed")
+	//check it not exist
+	t.Require().NotNil(t.db.Get(&User{ID: 2}), "operation should fail")
 }
 
 func (t *DBJSONTestSuite) TestUpdatePartial() {
 	expected := data.Users[1]
 	expected.Age++
-	err := t.db.UpdateUser(1, &User{Age: expected.Age})
+	actual := &User{ID: 1, Age: expected.Age}
+	err := t.db.Update(actual)
 	t.Require().Nil(err, "operation should succed")
 
-	actual, err := t.db.GetUser(1)
-	t.Require().Nil(err, "operation should succed")
 	t.Require().Equal(expected, *actual, "partial update should work")
 }
 
@@ -139,17 +140,16 @@ func (t *DBJSONTestSuite) TestUpdateFull() {
 	expected := data.Users[1]
 	expected.Age++
 	expected.Name += " UPD"
-	err := t.db.UpdateUser(1, &expected)
+	actual := &User{ID: 1, Age: expected.Age, Name: expected.Name}
+	err := t.db.Update(actual)
 	t.Require().Nil(err, "operation should succed")
 
-	actual, err := t.db.GetUser(1)
-	t.Require().Nil(err, "operation should succed")
-	t.Require().Equal(expected, *actual, "full update should work")
+	t.Require().Equal(expected, *actual, "partial update should work")
 }
 
 func (t *DBJSONTestSuite) TestErrors() {
-	_, err := t.db.GetUser(55)
+	err := t.db.Get(&User{ID: 55})
 	t.Require().True(errors.Is(err, ErrUserNotExists))
-	err = t.db.DeleteUser(55)
+	err = t.db.Delete(&User{ID: 55})
 	t.Require().True(errors.Is(err, ErrUserNotExists))
 }

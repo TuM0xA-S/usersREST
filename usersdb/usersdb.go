@@ -27,12 +27,20 @@ type User struct {
 // we are using inteface, because json db is not very effective
 // so later we can swap it without code rewrite
 // implementation should be threadsafe, and should return copies and store copies
+// ids should be > 0
+// UPD: new api
+// arg - criteria AND destination of data
+// example:
+// u := &User{ID: 1}
+// db.Get(u) get User with ID=1
+// u contains that user
+// it looks cool: db.Delete(&User{ID: 1})
 type DB interface {
-	GetUser(id int) (*User, error)
-	UpdateUser(id int, patch *User) error // patch is new data for user, id field ignored
-	DeleteUser(id int) error
-	CreateUser(*User) (id int, err error)
-	GetUserList() ([]User, error)
+	Get(*User) error    // arg should contain id
+	Update(*User) error // same
+	Delete(*User) error // same
+	Create(*User) error // arg should containg data
+	GetList(*[]User) error
 	Count() int
 	// Flush data to save changes
 	// we not use autoflush after every change because it slow and requires syncronization
@@ -72,75 +80,77 @@ func NewDBJSON(path string) (DB, error) {
 	return db, nil
 }
 
-func (db *dbJSON) GetUser(id int) (*User, error) {
+func (db *dbJSON) Get(u *User) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
-	user, ok := db.Users[id]
+	user, ok := db.Users[u.ID]
 	if !ok {
-		return nil, fmt.Errorf("when access user with id=%v: %w", id, ErrUserNotExists)
+		return fmt.Errorf("when access user with id=%v: %w", u.ID, ErrUserNotExists)
 	}
 
-	return &user, nil
-}
-
-func (db *dbJSON) DeleteUser(id int) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	if _, ok := db.Users[id]; !ok {
-		return fmt.Errorf("when access user with id=%v: %w", id, ErrUserNotExists)
-	}
-
-	delete(db.Users, id)
+	*u = user
 	return nil
 }
 
-func (db *dbJSON) UpdateUser(id int, patch *User) error {
+func (db *dbJSON) Delete(u *User) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	if _, ok := db.Users[id]; !ok {
-		return fmt.Errorf("when access user with id=%v: %w", id, ErrUserNotExists)
+	user, ok := db.Users[u.ID]
+	if !ok {
+		return fmt.Errorf("when access user with id=%v: %w", u.ID, ErrUserNotExists)
 	}
 
-	user := db.Users[id]
+	delete(db.Users, u.ID)
+	*u = user
+	return nil
+}
+
+func (db *dbJSON) Update(u *User) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	user, ok := db.Users[u.ID]
+	if !ok {
+		return fmt.Errorf("when access user with id=%v: %w", u.ID, ErrUserNotExists)
+	}
+
 	// update field only if it not omitted
 	// default value == omitted
-	if patch.Age > 0 {
-		user.Age = patch.Age
+	if u.Age > 0 {
+		user.Age = u.Age
 	}
-	if patch.Name != "" {
-		user.Name = patch.Name
+	if u.Name != "" {
+		user.Name = u.Name
 	}
 
-	db.Users[id] = user
-
+	db.Users[u.ID] = user
+	*u = user
 	return nil
 }
 
-func (db *dbJSON) CreateUser(user *User) (int, error) {
+func (db *dbJSON) Create(u *User) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	db.Counter++
-	u := *user
 	u.ID = db.Counter
-	db.Users[u.ID] = u
+	db.Users[u.ID] = *u
 
-	return u.ID, nil
+	return nil
 }
 
-func (db *dbJSON) GetUserList() ([]User, error) {
+func (db *dbJSON) GetList(ul *[]User) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
-	res := []User{}
+	*ul = []User{}
 	for _, user := range db.Users {
-		res = append(res, user)
+		*ul = append(*ul, user)
 	}
 
-	return res, nil
+	return nil
 }
 
 func (db *dbJSON) Count() int {
