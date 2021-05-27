@@ -1,1 +1,1 @@
-{"Counter":3,"Users":{"1":{"ID":1,"Name":"Petya","Age":20},"2":{"ID":2,"Name":"Alyosha","Age":30},"3":{"ID":3,"Name":"Vasya","Age":35}}}
+{"Counter":3,"Users":{"1":{"id":1,"name":"Petya","age":20},"2":{"id":2,"name":"Alyosha","age":30},"3":{"id":3,"name":"Vasya","age":35}}}

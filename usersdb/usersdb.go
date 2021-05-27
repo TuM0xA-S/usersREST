@@ -18,9 +18,9 @@ type accessError struct {
 
 // User model with minimum of data
 type User struct {
-	ID   int
-	Name string
-	Age  int
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Age  int    `json:"age"`
 }
 
 // DB is users database interface

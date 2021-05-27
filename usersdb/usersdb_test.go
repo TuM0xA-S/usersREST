@@ -101,7 +101,7 @@ func (t *DBJSONTestSuite) TestGet() {
 }
 
 func (t *DBJSONTestSuite) TestGetList() {
-	users, err := t.db.GetUserList()
+	actual, err := t.db.GetUserList()
 	t.Require().Nil(err, "operation should succed")
 
 	expected := []User{}
@@ -109,7 +109,7 @@ func (t *DBJSONTestSuite) TestGetList() {
 		expected = append(expected, u)
 	}
 
-	t.Require().Equal(expected, users)
+	t.Require().ElementsMatch(expected, actual)
 }
 
 func (t *DBJSONTestSuite) TestCount() {
