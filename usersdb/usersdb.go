@@ -11,14 +11,9 @@ import (
 // ErrUserNotExists will be wrapped as cause when user not exists
 var ErrUserNotExists = errors.New("user not exist")
 
-type accessError struct {
-	id int
-	error
-}
-
 // User model with minimum of data
 type User struct {
-	ID   int    `json:"id"`
+	ID   int    `json:"id" param:"id"`
 	Name string `json:"name"`
 	Age  int    `json:"age"`
 }
@@ -60,7 +55,11 @@ type dbJSON struct {
 
 // NewDBJSON is a constructor of json db, requires path to db file
 // if file not exists, it will be created
+// if path=="" then data.json will used
 func NewDBJSON(path string) (DB, error) {
+	if path == "" {
+		path = "data.json"
+	}
 	db := &dbJSON{path: path, Users: map[int]User{}}
 	file, err := os.Open(path)
 
@@ -80,6 +79,7 @@ func NewDBJSON(path string) (DB, error) {
 	return db, nil
 }
 
+// Requires id
 func (db *dbJSON) Get(u *User) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -93,6 +93,7 @@ func (db *dbJSON) Get(u *User) error {
 	return nil
 }
 
+// Requires id
 func (db *dbJSON) Delete(u *User) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -107,10 +108,10 @@ func (db *dbJSON) Delete(u *User) error {
 	return nil
 }
 
+// Requires id
 func (db *dbJSON) Update(u *User) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-
 	user, ok := db.Users[u.ID]
 	if !ok {
 		return fmt.Errorf("when access user with id=%v: %w", u.ID, ErrUserNotExists)
@@ -160,6 +161,7 @@ func (db *dbJSON) Count() int {
 	return len(db.Users)
 }
 
+// Flush data into associated file
 func (db *dbJSON) Flush() error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()

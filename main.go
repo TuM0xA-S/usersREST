@@ -1,16 +1,18 @@
 package main
 
 import (
-	"net/http"
-
-	"github.com/labstack/echo/v4"
+	"log"
+	"users/api"
+	"users/usersdb"
 )
 
 func main() {
-	e := echo.New()
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, world!")
-	})
+	db, err := usersdb.NewDBJSON("data.json")
+	defer db.Flush() // save data on exit
+	if err != nil {
+		log.Fatal(err)
+	}
+	app := api.NewUsersAPI(db)
+	app.Logger.Fatal(app.Start(":8000"))
 
-	e.Logger.Fatal(e.Start(":8000"))
 }

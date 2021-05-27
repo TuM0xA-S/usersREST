@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"users/usersdb"
 
@@ -10,17 +11,22 @@ import (
 
 // UsersAPI represents api
 type UsersAPI struct {
-	echo.Echo
+	*echo.Echo
 	db usersdb.DB
 }
 
 // NewUsersAPI returns api around db
 func NewUsersAPI(db usersdb.DB) *UsersAPI {
 	api := &UsersAPI{db: db}
+	api.Echo = echo.New()
 	api.GET("/users/:id", api.getUser)
 	api.PUT("/users/:id", api.updateUser)
+	api.DELETE("/users/:id", api.deleteUser)
 	api.POST("/users", api.createUser)
 	api.GET("/users", api.getUserList)
+
+	oldHandler := api.HTTPErrorHandler
+
 	api.HTTPErrorHandler = func(err error, c echo.Context) {
 		if errors.Is(err, usersdb.ErrUserNotExists) {
 			c.JSON(http.StatusNotFound, NewMessage(
@@ -28,7 +34,7 @@ func NewUsersAPI(db usersdb.DB) *UsersAPI {
 			))
 			return
 		}
-		api.HTTPErrorHandler(err, c)
+		oldHandler(err, c)
 	}
 
 	return api
@@ -67,6 +73,9 @@ func (api *UsersAPI) updateUser(c echo.Context) error {
 	if err := c.Bind(user); err != nil {
 		return err
 	}
+	if err := (&echo.DefaultBinder{}).BindPathParams(c, user); err != nil {
+		return err
+	}
 	if err := api.db.Update(user); err != nil {
 		return err
 	}
@@ -89,6 +98,7 @@ func (api *UsersAPI) deleteUser(c echo.Context) error {
 }
 
 func (api *UsersAPI) getUserList(c echo.Context) error {
+	fmt.Println("hello world")
 	users := []usersdb.User{}
 	if err := api.db.GetList(&users); err != nil {
 		return err
