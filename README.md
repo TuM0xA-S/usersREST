@@ -21,4 +21,5 @@ get list of users   | `GET /users`
 2. response format `{"message": "<text>", "data": <User|[]User>}`
 
 ### usage
-just run it(defaults will be used), also it has configuration with cmd args (-h for help)
+1. first of all run tests: go test ./...
+2. just run it(defaults will be used), also it has configuration with cmd args (-h for help)
