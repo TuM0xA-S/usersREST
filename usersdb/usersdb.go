@@ -18,8 +18,9 @@ type accessError struct {
 
 // User model with minimum of data
 type User struct {
-	id   int
-	name string
+	ID   int
+	Name string
+	Age  int
 }
 
 // DB is users database interface
@@ -30,8 +31,9 @@ type DB interface {
 	GetUser(id int) (*User, error)
 	UpdateUser(id int, patch *User) error // patch is new data for user, id field ignored
 	DeleteUser(id int) error
-	CreateUser(*User) error
+	CreateUser(*User) (id int, err error)
 	GetUserList() ([]User, error)
+	Count() int
 	// Flush data to save changes
 	// we not use autoflush after every change because it slow and requires syncronization
 	Flush() error
@@ -61,8 +63,9 @@ func NewDBJSON(path string) (DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("when initializing db with file: %w", err)
 	}
+	defer file.Close()
 
-	if err := json.NewDecoder(file).Decode(&db); err != nil {
+	if err := json.NewDecoder(file).Decode(db); err != nil {
 		return nil, fmt.Errorf("when loading users from %v: %w", path, err)
 	}
 
@@ -100,20 +103,32 @@ func (db *dbJSON) UpdateUser(id int, patch *User) error {
 	if _, ok := db.Users[id]; !ok {
 		return fmt.Errorf("when access user with id=%v: %w", id, ErrUserNotExists)
 	}
-	upd := User{id: id, name: patch.name}
-	db.Users[id] = upd
+
+	user := db.Users[id]
+	// update field only if it not omitted
+	// default value == omitted
+	if patch.Age > 0 {
+		user.Age = patch.Age
+	}
+	if patch.Name != "" {
+		user.Name = patch.Name
+	}
+
+	db.Users[id] = user
 
 	return nil
 }
 
-func (db *dbJSON) CreateUser(user *User) error {
+func (db *dbJSON) CreateUser(user *User) (int, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	db.Counter++
-	user.id = db.Counter
-	db.Users[user.id] = *user
-	return nil
+	u := *user
+	u.ID = db.Counter
+	db.Users[u.ID] = u
+
+	return u.ID, nil
 }
 
 func (db *dbJSON) GetUserList() ([]User, error) {
@@ -128,6 +143,13 @@ func (db *dbJSON) GetUserList() ([]User, error) {
 	return res, nil
 }
 
+func (db *dbJSON) Count() int {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return len(db.Users)
+}
+
 func (db *dbJSON) Flush() error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -136,6 +158,7 @@ func (db *dbJSON) Flush() error {
 	if err != nil {
 		return fmt.Errorf("when flushing: %w", err)
 	}
+	defer file.Close()
 
 	if err := json.NewEncoder(file).Encode(db); err != nil {
 		return fmt.Errorf("when flushing: %w", err)
