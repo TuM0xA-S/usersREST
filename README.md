@@ -6,6 +6,7 @@ simple rest api using echo framework and json file based database
 * db optimized for perfomance 
 * good test coverage
 * handles signals (gracefully shutdowns saving data on ctrl+c)
+* flexible flush control
 
 ### api reference
 action              | request
