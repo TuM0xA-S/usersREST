@@ -37,8 +37,11 @@ type DB interface {
 	Create(*User) error // arg should containg data
 	GetList(*[]User) error
 	Count() int
+	SetAutoflush(bool)
+	GetAutoflush() bool
 	// Flush data to save changes
 	// we not use autoflush after every change because it slow and requires syncronization
+	// UPD: i add autoflush as an option(handy for testing)
 	Flush() error
 }
 
@@ -48,9 +51,18 @@ type dbJSON struct {
 	// (every requests works in new goroutine)
 	Users map[int]User
 	// Counter is used for generate ids
-	Counter int
-	mu      sync.RWMutex // use rwmutex for decrease locks count(reading will be more effective)
-	path    string
+	Counter   int
+	mu        sync.RWMutex // use rwmutex for decrease locks count(reading will be more effective)
+	path      string
+	autoflush bool
+}
+
+func (db *dbJSON) SetAutoflush(val bool) {
+	db.autoflush = val
+}
+
+func (db *dbJSON) GetAutoflush() bool {
+	return db.autoflush
 }
 
 // NewDBJSON is a constructor of json db, requires path to db file
@@ -95,6 +107,9 @@ func (db *dbJSON) Get(u *User) error {
 
 // Requires id
 func (db *dbJSON) Delete(u *User) error {
+	if db.autoflush {
+		defer db.Flush()
+	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -110,6 +125,9 @@ func (db *dbJSON) Delete(u *User) error {
 
 // Requires id
 func (db *dbJSON) Update(u *User) error {
+	if db.autoflush {
+		defer db.Flush()
+	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	user, ok := db.Users[u.ID]
@@ -132,6 +150,9 @@ func (db *dbJSON) Update(u *User) error {
 }
 
 func (db *dbJSON) Create(u *User) error {
+	if db.autoflush {
+		defer db.Flush()
+	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
 

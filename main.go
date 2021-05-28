@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 	"users/api"
 	"users/usersdb"
 
@@ -16,9 +17,25 @@ import (
 func main() {
 	host := flag.String("host", ":8000", "hosting address of app")
 	dbpath := flag.String("db", "data.json", "path to json database file")
+	flushTimeout := flag.Int("flush", 60, "-1 = off autoflush\n"+
+		"0 = enable autoflush after every operation\n"+
+		"any other = flush timeout in seconds;")
 	flag.Parse()
 
 	db, err := usersdb.NewDBJSON(*dbpath)
+	if *flushTimeout == 0 {
+		db.SetAutoflush(true)
+	} else if *flushTimeout > 0 {
+		go func() {
+			ch := time.After(time.Duration(*flushTimeout) * time.Second)
+			for {
+				<-ch
+				db.Flush()
+				ch = time.After(time.Duration(*flushTimeout) * time.Second)
+			}
+		}()
+	}
+
 	defer db.Flush() // save data on exit
 	if err != nil {
 		log.Fatal(err)
@@ -34,10 +51,11 @@ func main() {
 	}()
 
 	flushChan := make(chan os.Signal)
-	signal.Notify(flushChan, syscall.SIGHUP) // flush data on sighup (kill -HUP pid)
+	signal.Notify(flushChan, syscall.SIGHUP) // flush data on sighup (kill -HUP <pid>)
 	go func() {
-		<-flushChan
-		db.Flush()
+		for range flushChan {
+			db.Flush()
+		}
 	}()
 
 	app.Use(middleware.Recover())
