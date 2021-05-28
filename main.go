@@ -23,29 +23,35 @@ func main() {
 	flag.Parse()
 
 	db, err := usersdb.NewDBJSON(*dbpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Flush() // save data on exit
+
+	app := api.NewUsersAPI(db)
 	if *flushTimeout == 0 {
 		db.SetAutoflush(true)
+		app.Logger.Print("autoflush enabled")
 	} else if *flushTimeout > 0 {
 		go func() {
+			app.Logger.Printf("flush timeout: %vs", *flushTimeout)
 			ch := time.After(time.Duration(*flushTimeout) * time.Second)
 			for {
 				<-ch
+				app.Logger.Printf("flushing...")
 				db.Flush()
 				ch = time.After(time.Duration(*flushTimeout) * time.Second)
 			}
 		}()
+	} else {
+		app.Logger.Print("no autoflush")
 	}
-
-	defer db.Flush() // save data on exit
-	if err != nil {
-		log.Fatal(err)
-	}
-	app := api.NewUsersAPI(db)
 
 	quitChan := make(chan os.Signal)
 	signal.Notify(quitChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT) // save data on exit by signal (ctrl+c and etc)
 	go func() {
 		<-quitChan
+		app.Logger.Printf("flushing...")
 		db.Flush()
 		app.Shutdown(context.Background())
 	}()
@@ -54,6 +60,7 @@ func main() {
 	signal.Notify(flushChan, syscall.SIGHUP) // flush data on sighup (kill -HUP <pid>)
 	go func() {
 		for range flushChan {
+			app.Logger.Printf("flushing...")
 			db.Flush()
 		}
 	}()
